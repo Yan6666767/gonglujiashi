@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#05060d" />
+<title>霓虹狂飙 · Neon Drive</title>
+<style>
+  :root{
+    --bg:#05060d;
+    --cyan:#5ad1ff;
+    --violet:#a56bff;
+    --pink:#ff4d8d;
+    --text:#e9f0ff;
+    --muted:#8493b5;
+    --line:rgba(140,170,255,.22);
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background:
+      radial-gradient(120% 80% at 50% -10%, #1a1440 0%, rgba(10,8,24,0) 60%),
+      radial-gradient(80% 60% at 50% 110%, #120a24 0%, rgba(5,6,13,0) 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:"Segoe UI", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100dvh; overflow:hidden;
+    user-select:none;
+  }
+
+  .stage{
+    position:relative;
+    width:min(calc(100vw - 24px), 55dvh);
+    aspect-ratio:480 / 800;
+    border-radius:20px;
+    overflow:hidden;
+    background:#05060d;
+    box-shadow:
+      0 0 0 1px rgba(120,170,255,.16),
+      0 40px 90px -30px rgba(0,0,0,.95),
+      0 0 70px rgba(80,120,255,.12);
+  }
+  canvas#game{ display:block; width:100%; height:100%; touch-action:none; }
+
+  /* ---------------- 主页 / 弹层 ---------------- */
+  .overlay{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:26px 26px 32px;
+    text-align:center;
+    gap:14px;
+  }
+  .overlay.home{
+    background:
+      radial-gradient(90% 60% at 50% 42%, rgba(60,40,140,.55) 0%, rgba(5,6,13,.72) 70%),
+      linear-gradient(180deg, rgba(5,6,13,.55), rgba(5,6,13,.9));
+  }
+  .overlay.dim{
+    background:rgba(6,8,16,.82);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    animation:fadeIn .18s ease-out both;
+  }
+  @keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+
+  .badge{
+    font-size:10px; letter-spacing:.32em; color:var(--cyan);
+    padding:5px 12px; border-radius:999px;
+    border:1px solid rgba(90,209,255,.35);
+    background:rgba(90,209,255,.08);
+    text-indent:.32em;
+  }
+  .badge.red{ color:#ff8fa8; border-color:rgba(255,90,120,.4); background:rgba(255,90,120,.08); }
+
+  .title{
+    margin:2px 0 0;
+    font-size:clamp(34px, 9.6vw, 50px);
+    line-height:1.05;
+    font-weight:900;
+    letter-spacing:.06em;
+    background:linear-gradient(180deg,#ffffff 6%, #b9d4ff 42%, #7aa2ff 70%, #b98cff 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 6px 26px rgba(110,150,255,.45));
+  }
+  .sub{
+    margin:0; font-size:12.5px; letter-spacing:.14em; color:var(--muted);
+  }
+  .bestline{
+    font-size:11px; letter-spacing:.18em; color:#9fb0d4;
+    padding:6px 14px; border-radius:999px;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(160,190,255,.14);
+  }
+  .bestline b{ color:#ffd76a; font-size:13px; letter-spacing:.06em; }
+
+  .btn{
+    font-family:inherit;
+    border:none; cursor:pointer;
+    border-radius:14px;
+    padding:14px 34px;
+    font-size:15px; font-weight:700; letter-spacing:.1em;
+    color:#fff;
+    transition:transform .12s ease, box-shadow .2s ease, background .2s ease;
+  }
+  .btn:active{ transform:scale(.97); }
+  .btn.primary{
+    background:linear-gradient(135deg,#3a7bff,#8b5cf6 70%, #c04fd8);
+    box-shadow:0 14px 34px -12px rgba(110,120,255,.95), inset 0 1px 0 rgba(255,255,255,.28);
+  }
+  .btn.primary:hover{ box-shadow:0 18px 40px -12px rgba(130,140,255,1), inset 0 1px 0 rgba(255,255,255,.3); }
+  .btn.ghost{
+    background:rgba(255,255,255,.055);
+    color:#c8d4ee;
+    border:1px solid var(--line);
+    padding:11px 20px;
+    font-size:13px; font-weight:600;
+  }
+  .btn.ghost:hover{ background:rgba(255,255,255,.1); }
+  .btn.ghost.on{ color:#8fe6ff; border-color:rgba(90,209,255,.4); background:rgba(90,209,255,.1); }
+
+  .row{ display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; }
+
+  .hint{
+    margin-top:6px;
+    font-size:11.5px; line-height:1.9; color:#6f7ea3;
+    letter-spacing:.06em;
+  }
+  .hint kbd{
+    font-family:inherit; font-size:10.5px;
+    padding:1px 6px; margin:0 1px;
+    border-radius:5px;
+    background:rgba(255,255,255,.07);
+    border:1px solid rgba(160,190,255,.16);
+    color:#aebddc;
+  }
+
+  /* ---------------- HUD ---------------- */
+  .hud{
+    position:absolute; inset:0;
+    pointer-events:none;
+    padding:14px 16px 16px;
+    display:flex; flex-direction:column; justify-content:space-between;
+    font-variant-numeric:tabular-nums;
+  }
+  .hud-top{ display:flex; align-items:flex-start; justify-content:space-between; }
+  .score-wrap{ display:flex; flex-direction:column; gap:2px; }
+  .label{ font-size:9px; letter-spacing:.26em; color:#7d8cae; }
+  .score-val{
+    font-size:34px; font-weight:800; line-height:1;
+    letter-spacing:.02em;
+    color:#f2f7ff;
+    text-shadow:0 0 22px rgba(90,160,255,.6);
+  }
+  .hud-right{ display:flex; align-items:center; gap:10px; }
+  .best-mini{
+    font-size:10px; letter-spacing:.16em; color:#93a3c4;
+    padding:5px 10px; border-radius:999px;
+    background:rgba(8,12,24,.55);
+    border:1px solid rgba(150,180,255,.16);
+  }
+  .best-mini b{ color:#ffd76a; }
+  .pausebtn{
+    pointer-events:auto;
+    width:36px; height:36px; border-radius:12px;
+    display:grid; place-items:center;
+    background:rgba(8,12,24,.6);
+    border:1px solid rgba(150,180,255,.2);
+    color:#c8d4ee; cursor:pointer;
+  }
+  .pausebtn:active{ background:rgba(30,40,70,.8); }
+
+  .hud-bottom{ display:flex; align-items:flex-end; justify-content:space-between; }
+  .lives{ display:flex; gap:5px; filter:drop-shadow(0 0 8px rgba(255,70,120,.5)); }
+  .spd{ text-align:right; display:flex; align-items:baseline; gap:4px; }
+  .spd span{ font-size:26px; font-weight:800; letter-spacing:.02em; color:#dff0ff; text-shadow:0 0 16px rgba(90,200,255,.5); }
+  .spd em{ font-style:normal; font-size:9px; letter-spacing:.18em; color:#7d8cae; }
+
+  /* ---------------- 结算 / 排行榜 ---------------- */
+  .final-label{ font-size:9px; letter-spacing:.3em; color:#8b9ab8; }
+  .final{
+    font-size:clamp(46px, 14vw, 64px); font-weight:900; line-height:1;
+    letter-spacing:-.02em;
+    background:linear-gradient(180deg,#ffffff,#8fb4ff 65%,#b98cff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 8px 30px rgba(110,150,255,.45));
+  }
+  .record{
+    font-size:11px; font-weight:800; letter-spacing:.2em;
+    color:#0a0c14;
+    padding:5px 14px; border-radius:999px;
+    background:linear-gradient(135deg,#ffd76a,#ffb347);
+    box-shadow:0 10px 28px -10px rgba(255,190,60,.9);
+    animation:pop .4s cubic-bezier(.2,1.5,.5,1) both;
+  }
+  @keyframes pop{ from{transform:scale(.6); opacity:0} to{transform:scale(1); opacity:1} }
+  .stats{ font-size:11.5px; letter-spacing:.1em; color:#8b9ab8; }
+
+  .board{
+    width:100%; max-width:300px;
+    max-height:44vh; overflow-y:auto;
+    display:flex; flex-direction:column; gap:6px;
+    padding:4px;
+    scrollbar-width:thin;
+  }
+  .board::-webkit-scrollbar{ width:4px; }
+  .board::-webkit-scrollbar-thumb{ background:rgba(140,170,255,.3); border-radius:4px; }
+  .brow{
+    display:grid; grid-template-columns:34px 1fr auto;
+    align-items:center; gap:10px;
+    padding:9px 12px;
+    border-radius:11px;
+    background:rgba(255,255,255,.045);
+    border:1px solid rgba(150,180,255,.1);
+    font-size:13px;
+    text-align:left;
+  }
+  .brow .rk{ font-size:11px; font-weight:800; letter-spacing:.06em; color:#7e8dae; text-align:center; }
+  .brow .rk.r1{ color:#ffd76a; }
+  .brow .rk.r2{ color:#cfd8ea; }
+  .brow .rk.r3{ color:#ffab73; }
+  .brow .sc{ font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:.02em; }
+  .brow .dt{ font-size:10px; color:#7a89a9; letter-spacing:.04em; }
+  .brow.top{ background:rgba(90,209,255,.09); border-color:rgba(90,209,255,.28); }
+  .empty{ font-size:12px; color:#7a89a9; padding:26px 0; letter-spacing:.08em; }
+  h2.mt{ margin:0; font-size:19px; letter-spacing:.14em; font-weight:800; }
+
+  /* ---------------- 触屏按键 ---------------- */
+  .pad{ display:none; }
+  @media (pointer: coarse), (max-width: 620px){
+    .pad{ display:flex; }
+  }
+  .pad{
+    position:absolute; left:0; right:0; bottom:0;
+    padding:0 14px 14px;
+    justify-content:space-between;
+    pointer-events:none;
+  }
+  .padbtn{
+    pointer-events:auto;
+    width:74px; height:56px;
+    border-radius:16px;
+    display:grid; place-items:center;
+    background:rgba(10,16,30,.5);
+    border:1px solid rgba(150,180,255,.18);
+    color:rgba(210,225,255,.8);
+    font-size:20px;
+    touch-action:none;
+  }
+  .padbtn:active{ background:rgba(90,140,255,.32); border-color:rgba(90,160,255,.5); }
+
+  #loaderr{
+    position:fixed; inset:0;
+    display:none; place-items:center; text-align:center;
+    padding:32px; font-size:13px; line-height:1.9; color:#9fb0d4;
+    background:rgba(5,6,13,.96); z-index:20;
+  }
+  #loaderr b{ color:#ff8fa8; }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <div id="loaderr">
+    <div>
+      <b>资源加载失败</b><br/>
+      React 需要通过 CDN 加载。<br/>
+      请检查网络连接后刷新页面。
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/htm@3/dist/htm.umd.js" crossorigin></script>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =========================================================
+     常量
+  ========================================================= */
+  var W = 480, H = 800;
+  var ROAD_L = 58, ROAD_R = 422;
+  var LANE_W = (ROAD_R - ROAD_L) / 3;
+  var PW = 46, PH = 82;
+  var PY = H - 168;
+
+  var SCORES_KEY = 'neondrive.scores.v1';
+  var SETTINGS_KEY = 'neondrive.settings.v1';
+
+  function laneCenter(i) { return ROAD_L + LANE_W * (i + 0.5); }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+  function rr(g, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  }
+
+  /* =========================================================
+     本地存储
+  ========================================================= */
+  function loadScores() {
+    try {
+      var raw = localStorage.getItem(SCORES_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(arr)) return [];
+      return arr.filter(function (e) { return e && typeof e.score === 'number'; }).slice(0, 10);
+    } catch (e) { return []; }
+  }
+
+  function saveScores(list) {
+    try { localStorage.setItem(SCORES_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+
+  function addScore(entry) {
+    var list = loadScores();
+    list.push(entry);
+    list.sort(function (a, b) { return b.score - a.score; });
+    list = list.slice(0, 10);
+    saveScores(list);
+    return list;
+  }
+
+  function loadSettings() {
+    try {
+      var raw = localStorage.getItem(SETTINGS_KEY);
+      var s = raw ? JSON.parse(raw) : null;
+      if (s && typeof s === 'object') {
+        return { sfx: s.sfx !== false, music: s.music !== false };
+      }
+    } catch (e) {}
+    return { sfx: true, music: true };
+  }
+
+  function saveSettings(s) {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+
+  /* =========================================================
+     音效（Web Audio 实时合成，无外部音频文件）
+  ========================================================= */
+  var Sound = {
+    ctx: null, master: null,
+    sfxOn: true, musicOn: true,
+    engOsc: null, engGain: null, engFilter: null,
+    musicTimer: null, step: 0,
+
+    init: function () {
+      if (this.ctx) { this.resume(); return; }
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      try {
+        this.ctx = new AC();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = 0.85;
+        this.master.connect(this.ctx.destination);
+      } catch (e) { this.ctx = null; }
+    },
+
+    resume: function () {
+      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    },
+
+    setEnabled: function (sfx, music) {
+      this.sfxOn = !!sfx;
+      this.musicOn = !!music;
+      if (!this.musicOn) this.musicStop();
+      else if (this.ctx && !this.musicTimer) this.musicStart();
+    },
+
+    tone: function (freq, dur, gain, type, force) {
+      if (!this.ctx || (!this.sfxOn && !force)) return;
+      var t = this.ctx.currentTime;
+      var o = this.ctx.createOscillator();
+      var g = this.ctx.createGain();
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(gain, t + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g);
+      g.connect(this.master);
+      o.start(t);
+      o.stop(t + dur + 0.02);
+    },
+
+    noise: function (dur, gain) {
+      if (!this.ctx || !this.sfxOn) return;
+      var t = this.ctx.currentTime;
+      var len = Math.ceil(this.ctx.sampleRate * dur);
+      var buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      var src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      var f = this.ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 1400;
+      var g = this.ctx.createGain();
+      g.gain.value = gain;
+      src.connect(f); f.connect(g); g.connect(this.master);
+      src.start(t);
+    },
+
+    cue: function (name) {
+      if (!this.ctx) return;
+      var self = this;
+      switch (name) {
+        case 'coin':
+          this.tone(900, 0.07, 0.5, 'sine');
+          setTimeout(function () { self.tone(1340, 0.12, 0.42, 'sine'); }, 55);
+          break;
+        case 'crash':
+          this.noise(0.34, 0.85);
+          this.tone(88, 0.38, 0.5, 'sawtooth');
+          break;
+        case 'hit':
+          this.tone(190, 0.14, 0.42, 'square');
+          break;
+        case 'over':
+          this.tone(230, 0.5, 0.35, 'sawtooth');
+          this.tone(112, 0.9, 0.3, 'sine');
+          break;
+        case 'start':
+          this.tone(340, 0.1, 0.45, 'sine');
+          setTimeout(function () { self.tone(680, 0.16, 0.45, 'sine'); }, 110);
+          break;
+        case 'ui':
+          this.tone(540, 0.06, 0.3, 'sine');
+          break;
+      }
+    },
+
+    startEngine: function () {
+      if (!this.ctx || this.engOsc) return;
+      var o = this.ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = 56;
+      var f = this.ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 240;
+      var g = this.ctx.createGain();
+      g.gain.value = 0;
+      o.connect(f); f.connect(g); g.connect(this.master);
+      o.start();
+      var t = this.ctx.currentTime;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.05, t + 0.35);
+      this.engOsc = o; this.engGain = g; this.engFilter = f;
+    },
+
+    engineSpeed: function (ratio) {
+      if (!this.engOsc || !this.ctx) return;
+      var t = this.ctx.currentTime;
+      this.engOsc.frequency.setTargetAtTime(50 + ratio * 48, t, 0.18);
+      this.engFilter.frequency.setTargetAtTime(200 + ratio * 320, t, 0.18);
+    },
+
+    stopEngine: function () {
+      if (!this.engOsc || !this.ctx) return;
+      var o = this.engOsc, g = this.engGain;
+      this.engOsc = null; this.engGain = null; this.engFilter = null;
+      var t = this.ctx.currentTime;
+      g.gain.setTargetAtTime(0, t, 0.12);
+      setTimeout(function () { try { o.stop(t + 0.4); } catch (e) {} }, 420);
+    },
+
+    musicStart: function () {
+      if (!this.ctx || this.musicTimer) return;
+      var self = this;
+      this.step = 0;
+      this.musicTimer = setInterval(function () {
+        if (!self.musicOn || !self.ctx) return;
+        var seq = [0, 4, 7, 11, 14, 11, 7, 4];
+        var n = seq[self.step % seq.length];
+        self.tone(196 * Math.pow(2, n / 12), 0.5, 0.045, 'triangle', true);
+        if (self.step % 4 === 0) self.tone(98, 0.7, 0.05, 'sine', true);
+        self.step++;
+      }, 520);
+    },
+
+    musicStop: function () {
+      if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; }
+    }
+  };
+
+  /* =========================================================
+     游戏引擎
+  ========================================================= */
+  var TRAFFIC_PALETTES = [
+    { dark: '#1b2740', main: '#2f6bff', light: '#6fa7ff' },
+    { dark: '#3a1f2c', main: '#d9435f', light: '#ff8095' },
+    { dark: '#3a2f14', main: '#e0a83c', light: '#ffd98a' },
+    { dark: '#1c3530', main: '#2fbf8f', light: '#7ff0c8' },
+    { dark: '#2a2438', main: '#8b5cf6', light: '#c4a6ff' }
+  ];
+
+  var PLAYER_PALETTE = { dark: '#0e4d63', main: '#25d6f2', light: '#b9fbff' };
+
+  function drawCar(g, x, y, w, h, pal, tilt, glow) {
+    g.save();
+    g.translate(x + w / 2, y + h / 2);
+    g.rotate(tilt || 0);
+    g.translate(-w / 2, -h / 2);
+
+    // 车轮
+    g.fillStyle = '#07080e';
+    rr(g, -3.5, h * 0.14, 7, h * 0.2, 3); g.fill();
+    rr(g, w - 3.5, h * 0.14, 7, h * 0.2, 3); g.fill();
+    rr(g, -3.5, h * 0.64, 7, h * 0.2, 3); g.fill();
+    rr(g, w - 3.5, h * 0.64, 7, h * 0.2, 3); g.fill();
+
+    // 车身
+    var grd = g.createLinearGradient(0, 0, w, 0);
+    grd.addColorStop(0, pal.dark);
+    grd.addColorStop(0.38, pal.main);
+    grd.addColorStop(0.62, pal.light);
+    grd.addColorStop(1, pal.dark);
+    if (glow) { g.shadowColor = pal.main; g.shadowBlur = 20; }
+    rr(g, 1, 0, w - 2, h, 10);
+    g.fillStyle = grd;
+    g.fill();
+    g.shadowBlur = 0;
+
+    // 高光
+    g.fillStyle = 'rgba(255,255,255,.16)';
+    rr(g, 5, 3, w - 10, 7, 3.5); g.fill();
+
+    // 前挡风
+    g.fillStyle = 'rgba(10,20,38,.92)';
+    rr(g, 6, h * 0.14, w - 12, h * 0.19, 5); g.fill();
+    g.fillStyle = 'rgba(150,220,255,.16)';
+    rr(g, 8, h * 0.15, w - 16, h * 0.05, 3); g.fill();
+
+    // 车顶
+    g.fillStyle = 'rgba(255,255,255,.07)';
+    rr(g, 5, h * 0.37, w - 10, h * 0.19, 4); g.fill();
+
+    // 后窗
+    g.fillStyle = 'rgba(10,20,38,.85)';
+    rr(g, 7, h * 0.6, w - 14, h * 0.14, 4); g.fill();
+
+    // 车灯
+    g.fillStyle = '#fff6d8';
+    rr(g, 5, 3, 11, 5, 2.5); g.fill();
+    rr(g, w - 16, 3, 11, 5, 2.5); g.fill();
+    g.fillStyle = '#ff3d5e';
+    rr(g, 5, h - 9, 11, 5, 2.5); g.fill();
+    rr(g, w - 16, h - 9, 11, 5, 2.5); g.fill();
+
+    g.restore();
+  }
+
+  function DriveGame(canvas, cb) {
+    this.canvas = canvas;
+    this.g = canvas.getContext('2d');
+    this.cb = cb || {};
+    this.phase = 'idle';
+    this.input = { left: false, right: false, targetX: null };
+    this.raf = null;
+    this.last = 0;
+    this.sx = 1; this.sy = 1;
+
+    this.resize();
+    this.reset();
+
+    var self = this;
+    this._loop = function (ts) { self.loop(ts); };
+    this.raf = requestAnimationFrame(this._loop);
+    this._onResize = function () { self.resize(); };
+    window.addEventListener('resize', this._onResize);
+  }
+
+  DriveGame.prototype.resize = function () {
+    var rect = this.canvas.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    var cw = rect.width || W, ch = rect.height || H;
+    this.canvas.width = Math.round(cw * dpr);
+    this.canvas.height = Math.round(ch * dpr);
+    this.sx = this.canvas.width / W;
+    this.sy = this.canvas.height / H;
+  };
+
+  DriveGame.prototype.reset = function () {
+    this.odo = 0;
+    this.speed = 330;
+    this.score = 0;
+    this.bonus = 0;
+    this.coins = 0;
+    this.lives = 3;
+    this.px = laneCenter(1) - PW / 2;
+    this.pvx = 0;
+    this.tilt = 0;
+    this.cars = [];
+    this.pickups = [];
+    this.parts = [];
+    this.spawnT = 0.8;
+    this.coinT = 2.4;
+    this.inv = 0;
+    this.shake = 0;
+    this.flash = 0;
+    this.time = 0;
+    this.hudT = 0;
+    this.input.left = false;
+    this.input.right = false;
+    this.input.targetX = null;
+  };
+
+  DriveGame.prototype.start = function () {
+    this.reset();
+    this.phase = 'running';
+    this.emitHud();
+  };
+
+  DriveGame.prototype.pause = function () {
+    if (this.phase === 'running') this.phase = 'paused';
+  };
+
+  DriveGame.prototype.resume = function () {
+    if (this.phase === 'paused') this.phase = 'running';
+  };
+
+  DriveGame.prototype.end = function () {
+    this.phase = 'over';
+    if (this.cb.onOver) {
+      this.cb.onOver({
+        score: this.score,
+        coins: this.coins,
+        meters: Math.round(this.odo / 100)
+      });
+    }
+  };
+
+  DriveGame.prototype.emitHud = function () {
+    if (this.cb.onHud) {
+      this.cb.onHud({
+        score: this.score,
+        lives: this.lives,
+        kmh: Math.round(this.speed * 0.36)
+      });
+    }
+  };
+
+  DriveGame.prototype.explode = function (x, y, n) {
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var sp = rand(60, 320);
+      this.parts.push({
+        x: x, y: y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rand(0.3, 0.8),
+        max: 0.8,
+        size: rand(1.5, 4),
+        color: Math.random() > 0.45 ? '#ffcf6b' : '#ff7a5c'
+      });
+    }
+  };
+
+  DriveGame.prototype.sparkle = function (x, y, color) {
+    for (var i = 0; i < 10; i++) {
+      var a = Math.random() * Math.PI * 2;
+      var sp = rand(30, 150);
+      this.parts.push({
+        x: x, y: y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rand(0.25, 0.55),
+        max: 0.55,
+        size: rand(1.2, 2.6),
+        color: color || '#ffd76a'
+      });
+    }
+  };
+
+  DriveGame.prototype.spawnCar = function () {
+    var lane = Math.floor(Math.random() * 3);
+    for (var i = 0; i < this.cars.length; i++) {
+      if (this.cars[i].lane === lane && this.cars[i].y < 170) return;
+    }
+    var pal = TRAFFIC_PALETTES[Math.floor(Math.random() * TRAFFIC_PALETTES.length)];
+    this.cars.push({
+      lane: lane,
+      x: laneCenter(lane) - PW / 2,
+      y: -112,
+      w: PW, h: PH,
+      v: rand(135, 265),
+      pal: pal,
+      scored: false
+    });
+  };
+
+  DriveGame.prototype.spawnCoin = function () {
+    var lane = Math.floor(Math.random() * 3);
+    for (var i = 0; i < this.cars.length; i++) {
+      if (this.cars[i].lane === lane && this.cars[i].y < 110) return;
+    }
+    this.pickups.push({ x: laneCenter(lane), y: -32, r: 13 });
+  };
+
+  DriveGame.prototype.hit = function () {
+    this.lives--;
+    this.inv = 1.8;
+    this.shake = 1;
+    this.flash = 1;
+    this.pvx = 0;
+    this.explode(this.px + PW / 2, PY + PH / 2, 24);
+    if (this.lives <= 0) {
+      if (this.cb.onSound) this.cb.onSound('crash');
+      this.end();
+    } else {
+      if (this.cb.onSound) this.cb.onSound('crash');
+      this.emitHud();
+    }
+  };
+
+  DriveGame.prototype.update = function (dt) {
+    var self = this;
+    this.time += dt;
+    this.odo += this.speed * dt;
+
+    var diff = Math.min(1, this.odo / 150000);
+    this.speed = 330 + diff * 430;
+    this.score = Math.floor(this.odo / 12) + this.bonus;
+
+    // 转向
+    var ax = 0;
+    if (this.input.left) ax -= 1;
+    if (this.input.right) ax += 1;
+
+    if (ax !== 0) {
+      this.pvx += ax * 1500 * dt;
+    } else if (this.input.targetX !== null) {
+      var cx = this.px + PW / 2;
+      var want = clamp((this.input.targetX - cx) * 9, -430, 430);
+      this.pvx += (want - this.pvx) * Math.min(1, 11 * dt);
+    }
+    this.pvx *= Math.pow(0.88, dt * 60);
+    this.pvx = clamp(this.pvx, -430, 430);
+    this.px += this.pvx * dt;
+
+    var minX = ROAD_L + 4, maxX = ROAD_R - PW - 4;
+    if (this.px < minX) { this.px = minX; this.pvx = 0; }
+    if (this.px > maxX) { this.px = maxX; this.pvx = 0; }
+    this.tilt = (this.pvx / 430) * 0.16;
+
+    if (this.inv > 0) this.inv = Math.max(0, this.inv - dt);
+    if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 2.4);
+    if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 3);
+
+    // 生成
+    this.spawnT -= dt;
+    if (this.spawnT <= 0) {
+      this.spawnCar();
+      this.spawnT = Math.max(0.38, rand(0.6, 1.05) - diff * 0.22);
+    }
+    this.coinT -= dt;
+    if (this.coinT <= 0) {
+      this.spawnCoin();
+      this.coinT = rand(1.9, 4.2);
+    }
+
+    // 车流更新 / 碰撞
+    var pcx = this.px + PW / 2, pcy = PY + PH / 2;
+    for (var i = this.cars.length - 1; i >= 0; i--) {
+      var c = this.cars[i];
+      c.y += (this.speed - c.v) * dt;
+
+      if (!c.scored && c.y > PY + PH * 0.5) {
+        c.scored = true;
+        this.bonus += 25;
+      }
+
+      if (c.y > H + 130) { this.cars.splice(i, 1); continue; }
+
+      if (this.inv <= 0) {
+        var dx = Math.abs((c.x + c.w / 2) - pcx);
+        var dy = Math.abs((c.y + c.h / 2) - pcy);
+        if (dx < (c.w + PW) / 2 - 10 && dy < (c.h + PH) / 2 - 8) {
+          this.hit();
+          if (this.phase !== 'running') return;
+        }
+      }
+    }
+
+    // 金币更新 / 拾取
+    for (var j = this.pickups.length - 1; j >= 0; j--) {
+      var p = this.pickups[j];
+      p.y += this.speed * dt;
+      if (p.y > H + 40) { this.pickups.splice(j, 1); continue; }
+      var ddx = p.x - pcx, ddy = p.y - pcy;
+      if (Math.sqrt(ddx * ddx + ddy * ddy) < 36) {
+        this.bonus += 100;
+        this.coins++;
+        this.sparkle(p.x, p.y, '#ffd76a');
+        if (this.cb.onSound) this.cb.onSound('coin');
+        this.pickups.splice(j, 1);
+      }
+    }
+
+    this.updateParts(dt);
+
+    // HUD 节流
+    this.hudT -= dt;
+    if (this.hudT <= 0) {
+      this.hudT = 0.1;
+      this.emitHud();
+    }
+  };
+
+  DriveGame.prototype.updateParts = function (dt) {
+    for (var i = this.parts.length - 1; i >= 0; i--) {
+      var p = this.parts[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 200 * dt;
+      p.vx *= Math.pow(0.9, dt * 60);
+      p.life -= dt;
+      if (p.life <= 0) this.parts.splice(i, 1);
+    }
+  };
+
+  DriveGame.prototype.loop = function (ts) {
+    this.raf = requestAnimationFrame(this._loop);
+    var now = ts / 1000;
+    if (!this.last) this.last = now;
+    var dt = Math.min(0.05, now - this.last);
+    this.last = now;
+
+    if (this.phase === 'running') this.update(dt);
+    else if (this.phase === 'idle') { this.odo += 150 * dt; this.time += dt; this.updateParts(dt); }
+    else { this.time += dt; this.updateParts(dt); }
+
+    this.draw();
+  };
+
+  /* ---------------- 绘制 ---------------- */
+
+  DriveGame.prototype.draw = function () {
+    var g = this.g;
+    g.setTransform(this.sx, 0, 0, this.sy, 0, 0);
+    g.clearRect(0, 0, W, H);
+
+    var ox = 0, oy = 0;
+    if (this.shake > 0) {
+      var m = this.shake * 9;
+      ox = (Math.random() - 0.5) * m;
+      oy = (Math.random() - 0.5) * m;
+    }
+
+    g.save();
+    g.translate(ox, oy);
+
+    this.drawBg(g);
+    this.drawRoad(g);
+    this.drawPickups(g);
+    this.drawTraffic(g);
+    this.drawPlayer(g);
+    this.drawParts(g);
+
+    g.restore();
+
+    this.drawVignette(g);
+
+    if (this.flash > 0) {
+      g.fillStyle = 'rgba(255,60,90,' + (this.flash * 0.42) + ')';
+      g.fillRect(0, 0, W, H);
+    }
+  };
+
+  DriveGame.prototype.drawBg = function (g) {
+    var grd = g.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#090a16');
+    grd.addColorStop(1, '#04050c');
+    g.fillStyle = grd;
+    g.fillRect(0, 0, W, H);
+
+    // 两侧扫描网格
+    var off = (this.odo * 0.45) % 58;
+    g.strokeStyle = 'rgba(90,120,255,.13)';
+    g.lineWidth = 1;
+    for (var y = -58 + off; y < H + 58; y += 58) {
+      g.beginPath(); g.moveTo(0, y); g.lineTo(ROAD_L, y); g.stroke();
+      g.beginPath(); g.moveTo(ROAD_R, y); g.lineTo(W, y); g.stroke();
+    }
+    g.strokeStyle = 'rgba(90,120,255,.07)';
+    for (var x = 14; x < ROAD_L; x += 26) {
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke();
+    }
+    for (var x2 = ROAD_R + 14; x2 < W; x2 += 26) {
+      g.beginPath(); g.moveTo(x2, 0); g.lineTo(x2, H); g.stroke();
+    }
+  };
+
+  DriveGame.prototype.drawRoad = function (g) {
+    var rg = g.createLinearGradient(ROAD_L, 0, ROAD_R, 0);
+    rg.addColorStop(0, '#11141f');
+    rg.addColorStop(0.5, '#1a1e2c');
+    rg.addColorStop(1, '#11141f');
+    g.fillStyle = rg;
+    g.fillRect(ROAD_L, 0, ROAD_R - ROAD_L, H);
+
+    // 边缘霓虹
+    g.save();
+    g.shadowBlur = 16;
+    g.shadowColor = 'rgba(90,200,255,.95)';
+    g.fillStyle = 'rgba(130,215,255,.9)';
+    g.fillRect(ROAD_L - 1.5, 0, 3, H);
+    g.shadowColor = 'rgba(180,110,255,.95)';
+    g.fillStyle = 'rgba(190,140,255,.9)';
+    g.fillRect(ROAD_R - 1.5, 0, 3, H);
+    g.restore();
+
+    // 车道虚线
+    var period = 104, dashH = 56;
+    var startY = (this.odo % period) - period;
+    g.fillStyle = 'rgba(214,228,255,.42)';
+    for (var i = 1; i <= 2; i++) {
+      var lx = ROAD_L + LANE_W * i;
+      for (var y = startY; y < H; y += period) {
+        rr(g, lx - 2, y, 4, dashH, 2);
+        g.fill();
+      }
+    }
+
+    // 路灯
+    var pp = 262, py0 = (this.odo % pp) - pp;
+    for (var y2 = py0; y2 < H + pp; y2 += pp) {
+      this.drawPost(g, ROAD_L - 15, y2);
+      this.drawPost(g, ROAD_R + 15, y2);
+    }
+  };
+
+  DriveGame.prototype.drawPost = function (g, x, y) {
+    g.fillStyle = 'rgba(120,150,210,.35)';
+    g.fillRect(x - 1, y, 2, 26);
+    g.save();
+    g.shadowBlur = 14;
+    g.shadowColor = 'rgba(120,200,255,.9)';
+    g.fillStyle = 'rgba(190,230,255,.95)';
+    g.beginPath();
+    g.arc(x, y, 2.6, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  };
+
+  DriveGame.prototype.drawPickups = function (g) {
+    for (var i = 0; i < this.pickups.length; i++) {
+      var p = this.pickups[i];
+      var pulse = Math.sin(this.time * 7 + i) * 1.4;
+      g.save();
+      var grd = g.createRadialGradient(p.x, p.y, 1, p.x, p.y, p.r + 10 + pulse);
+      grd.addColorStop(0, 'rgba(255,238,170,.95)');
+      grd.addColorStop(0.45, 'rgba(255,196,70,.55)');
+      grd.addColorStop(1, 'rgba(255,170,0,0)');
+      g.fillStyle = grd;
+      g.beginPath(); g.arc(p.x, p.y, p.r + 10 + pulse, 0, Math.PI * 2); g.fill();
+
+      g.fillStyle = '#ffd76a';
+      g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(160,100,0,.55)';
+      g.lineWidth = 2;
+      g.beginPath(); g.arc(p.x, p.y, p.r - 4, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,.75)';
+      g.beginPath(); g.arc(p.x - 3.5, p.y - 4, 2.6, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+  };
+
+  DriveGame.prototype.drawTraffic = function (g) {
+    for (var i = 0; i < this.cars.length; i++) {
+      var c = this.cars[i];
+      if (c.y < -140 || c.y > H + 60) continue;
+      drawCar(g, c.x, c.y, c.w, c.h, c.pal, 0, false);
+    }
+  };
+
+  DriveGame.prototype.drawPlayer = function (g) {
+    if (this.inv > 0 && Math.floor(this.time * 14) % 2 === 0) return;
+
+    // 大灯光锥
+    g.save();
+    var lg = g.createLinearGradient(0, PY, 0, PY - 200);
+    lg.addColorStop(0, 'rgba(150,225,255,.26)');
+    lg.addColorStop(1, 'rgba(150,225,255,0)');
+    g.fillStyle = lg;
+    g.beginPath();
+    g.moveTo(this.px + 8, PY + 8);
+    g.lineTo(this.px + PW - 8, PY + 8);
+    g.lineTo(this.px + PW + 30, PY - 190);
+    g.lineTo(this.px - 30, PY - 190);
+    g.closePath();
+    g.fill();
+    g.restore();
+
+    drawCar(g, this.px, PY, PW, PH, PLAYER_PALETTE, this.tilt, true);
+  };
+
+  DriveGame.prototype.drawParts = function (g) {
+    for (var i = 0; i < this.parts.length; i++) {
+      var p = this.parts[i];
+      var a = Math.max(0, p.life / p.max);
+      g.globalAlpha = a;
+      g.fillStyle = p.color;
+      g.save();
+      g.shadowColor = p.color;
+      g.shadowBlur = 8;
+      g.beginPath();
+      g.arc(p.x, p.y, p.size * a, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+    g.globalAlpha = 1;
+  };
+
+  DriveGame.prototype.drawVignette = function (g) {
+    var vg = g.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.78);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,.55)');
+    g.fillStyle = vg;
+    g.fillRect(0, 0, W, H);
+  };
+
+  DriveGame.prototype.destroy = function () {
+    cancelAnimationFrame(this.raf);
+    window.removeEventListener('resize', this._onResize);
+  };
+
+  /* =========================================================
+     React UI
+  ========================================================= */
+  var h = React.createElement;
+  var html = htm.bind(h);
+  var useState = React.useState;
+  var useEffect = React.useEffect;
+  var useRef = React.useRef;
+
+  function fmt(n) {
+    return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function fmtDate(ts) {
+    try {
+      var d = new Date(ts);
+      var p = function (v) { return v < 10 ? '0' + v : String(v); };
+      return p(d.getMonth() + 1) + '/' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    } catch (e) { return '—'; }
+  }
+
+  function Heart(props) {
+    return html`<svg width="17" height="15" viewBox="0 0 24 22">
+      <path d="M12 20.6S2.6 14.8 2.6 8.5A5.4 5.4 0 0 1 12 5.3 5.4 5.4 0 0 1 21.4 8.5c0 6.3-9.4 12.1-9.4 12.1Z"
+        fill=${props.on ? '#ff4d6d' : 'rgba(255,255,255,.13)'} />
+    </svg>`;
+  }
+
+  function App() {
+    var canvasRef = useRef(null);
+    var gameRef = useRef(null);
+
+    var phaseState = useState('home');
+    var phase = phaseState[0], setPhase = phaseState[1];
+
+    var hudState = useState({ score: 0, lives: 3, kmh: 0 });
+    var hud = hudState[0], setHud = hudState[1];
+
+    var scoresState = useState(loadScores);
+    var scores = scoresState[0], setScores = scoresState[1];
+
+    var settingsState = useState(loadSettings);
+    var settings = settingsState[0], setSettings = settingsState[1];
+
+    var boardState = useState(false);
+    var board = boardState[0], setBoard = boardState[1];
+
+    var resultState = useState(null);
+    var result = resultState[0], setResult = resultState[1];
+
+    var touchState = useState(function () {
+      try { return window.matchMedia('(pointer: coarse)').matches; } catch (e) { return false; }
+    });
+    var isTouch = touchState[0];
+
+    var best = scores.length ? scores[0].score : 0;
+
+    function togglePause() {
+      var g = gameRef.current;
+      if (!g) return;
+      if (g.phase === 'running') {
+        g.pause();
+        Sound.stopEngine();
+        setPhase('paused');
+      } else if (g.phase === 'paused') {
+        g.resume();
+        Sound.startEngine();
+        setPhase('playing');
+      }
+    }
+
+    function startGame() {
+      Sound.init();
+      Sound.resume();
+      Sound.cue('start');
+      if (settings.music) Sound.musicStart();
+      Sound.startEngine();
+      setHud({ score: 0, lives: 3, kmh: 0 });
+      setResult(null);
+      setBoard(false);
+      setPhase('playing');
+      if (gameRef.current) gameRef.current.start();
+    }
+
+    function goHome() {
+      Sound.stopEngine();
+      Sound.cue('ui');
+      setPhase('home');
+      if (gameRef.current) {
+        gameRef.current.phase = 'idle';
+        gameRef.current.reset();
+      }
+    }
+
+    function toggleSetting(key) {
+      var next = { sfx: settings.sfx, music: settings.music };
+      next[key] = !next[key];
+      setSettings(next);
+      saveSettings(next);
+      Sound.cue('ui');
+    }
+
+    function clearBoard() {
+      setScores([]);
+      saveScores([]);
+      Sound.cue('ui');
+    }
+
+    // 初始化引擎
+    useEffect(function () {
+      var game = new DriveGame(canvasRef.current, {
+        onHud: function (h) {
+          setHud(h);
+          Sound.engineSpeed(clamp((h.kmh - 110) / 160, 0, 1));
+        },
+        onSound: function (name) { Sound.cue(name); },
+        onOver: function (res) {
+          Sound.stopEngine();
+          Sound.cue('over');
+          var prev = loadScores();
+          var bestBefore = prev.length ? prev[0].score : 0;
+          var entry = { score: res.score, coins: res.coins, meters: res.meters, date: Date.now() };
+          var list = addScore(entry);
+          setScores(list);
+          setResult({
+            score: res.score,
+            coins: res.coins,
+            meters: res.meters,
+            isRecord: res.score > bestBefore && res.score > 0,
+            rank: list.indexOf(entry) + 1
+          });
+          setPhase('over');
+        }
+      });
+      gameRef.current = game;
+
+      function onKeyDown(e) {
+        var g = gameRef.current;
+        if (!g) return;
+        var k = e.key;
+        if (k === 'ArrowLeft' || k === 'a' || k === 'A') { g.input.left = true; e.preventDefault(); }
+        else if (k === 'ArrowRight' || k === 'd' || k === 'D') { g.input.right = true; e.preventDefault(); }
+        else if (k === 'Escape' || k === 'p' || k === 'P') {
+          e.preventDefault();
+          togglePause();
+        }
+      }
+      function onKeyUp(e) {
+        var g = gameRef.current;
+        if (!g) return;
+        var k = e.key;
+        if (k === 'ArrowLeft' || k === 'a' || k === 'A') g.input.left = false;
+        if (k === 'ArrowRight' || k === 'd' || k === 'D') g.input.right = false;
+      }
+      function onBlur() {
+        var g = gameRef.current;
+        if (!g) return;
+        g.input.left = false;
+        g.input.right = false;
+        g.input.targetX = null;
+      }
+      function onVis() {
+        var g = gameRef.current;
+        if (document.hidden && g && g.phase === 'running') {
+          g.pause();
+          Sound.stopEngine();
+          setPhase('paused');
+        }
+      }
+
+      window.addEventListener('keydown', onKeyDown);
+      window.addEventListener('keyup', onKeyUp);
+      window.addEventListener('blur', onBlur);
+      document.addEventListener('visibilitychange', onVis);
+
+      return function () {
+        window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('keyup', onKeyUp);
+        window.removeEventListener('blur', onBlur);
+        document.removeEventListener('visibilitychange', onVis);
+        game.destroy();
+      };
+    }, []);
+
+    // 音效设置同步
+    useEffect(function () {
+      Sound.setEnabled(settings.sfx, settings.music);
+    }, [settings.sfx, settings.music]);
+
+    /* ---------- 指针操控 ---------- */
+    function pointerX(e) {
+      var g = gameRef.current;
+      if (!g || g.phase !== 'running') return;
+      var rect = e.currentTarget.getBoundingClientRect();
+      var x = (e.clientX - rect.left) / (rect.width || 1) * W;
+      g.input.targetX = x;
+    }
+
+    var canvasProps = {
+      ref: canvasRef,
+      id: 'game',
+      onPointerDown: function (e) {
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+        pointerX(e);
+      },
+      onPointerMove: function (e) {
+        if (e.pointerType === 'touch' || (e.buttons && e.buttons !== 0)) pointerX(e);
+      },
+      onPointerUp: function () {
+        if (gameRef.current) gameRef.current.input.targetX = null;
+      },
+      onPointerCancel: function () {
+        if (gameRef.current) gameRef.current.input.targetX = null;
+      }
+    };
+
+    /* ---------- 渲染片段 ---------- */
+    var hudEl = null;
+    if (phase === 'playing' || phase === 'paused') {
+      hudEl = html`<div className="hud">
+        <div className="hud-top">
+          <div className="score-wrap">
+            <span className="label">SCORE</span>
+            <span className="score-val">${fmt(hud.score)}</span>
+          </div>
+          <div className="hud-right">
+            <div className="best-mini">BEST <b>${fmt(best)}</b></div>
+            <button className="pausebtn" onClick=${togglePause} aria-label="暂停">
+              <svg width="12" height="14" viewBox="0 0 12 14">
+                <rect x="1" y="1" width="3.2" height="12" rx="1.2" fill="#c8d4ee" />
+                <rect x="7.8" y="1" width="3.2" height="12" rx="1.2" fill="#c8d4ee" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div className="hud-bottom">
+          <div className="lives">
+            ${[0, 1, 2].map(function (i) {
+              return html`<${Heart} key=${i} on=${i < hud.lives} />`;
+            })}
+          </div>
+          <div className="spd"><span>${hud.kmh}</span><em>KM/H</em></div>
+        </div>
+      </div>`;
+    }
+
+    var padEl = null;
+    if (isTouch && phase === 'playing') {
+      padEl = html`<div className="pad">
+        <div className="padbtn"
+          onPointerDown=${function (e) { e.stopPropagation(); e.preventDefault(); if (gameRef.current) gameRef.current.input.left = true; }}
+          onPointerUp=${function () { if (gameRef.current) gameRef.current.input.left = false; }}
+          onPointerLeave=${function () { if (gameRef.current) gameRef.current.input.left = false; }}
+          onPointerCancel=${function () { if (gameRef.current) gameRef.current.input.left = false; }}
+        >◀</div>
+        <div className="padbtn"
+          onPointerDown=${function (e) { e.stopPropagation(); e.preventDefault(); if (gameRef.current) gameRef.current.input.right = true; }}
+          onPointerUp=${function () { if (gameRef.current) gameRef.current.input.right = false; }}
+          onPointerLeave=${function () { if (gameRef.current) gameRef.current.input.right = false; }}
+          onPointerCancel=${function () { if (gameRef.current) gameRef.current.input.right = false; }}
+        >▶</div>
+      </div>`;
+    }
+
+    var homeEl = null;
+    if (phase === 'home' && !board) {
+      homeEl = html`<div className="overlay home">
+        <div className="badge">ARCADE RACING</div>
+        <h1 className="title">霓虹狂飙</h1>
+        <p className="sub">NEON DRIVE · 躲避车流，冲刺最高分</p>
+        ${best > 0 ? html`<div className="bestline">最高分 <b>${fmt(best)}</b></div>` : null}
+        <button className="btn primary" onClick=${startGame}>开始游戏</button>
+        <div className="row">
+          <button className="btn ghost" onClick=${function () { Sound.cue('ui'); setBoard(true); }}>排行榜</button>
+          <button className=${'btn ghost' + (settings.sfx ? ' on' : '')} onClick=${function () { toggleSetting('sfx'); }}>
+            音效 ${settings.sfx ? '开' : '关'}
+          </button>
+          <button className=${'btn ghost' + (settings.music ? ' on' : '')} onClick=${function () { toggleSetting('music'); }}>
+            音乐 ${settings.music ? '开' : '关'}
+          </button>
+        </div>
+        <div className="hint">
+          <kbd>←</kbd><kbd>→</kbd> 或 <kbd>A</kbd><kbd>D</kbd> 转向 · 也可拖动屏幕<br/>
+          <kbd>Esc</kbd> / <kbd>P</kbd> 暂停
+        </div>
+      </div>`;
+    }
+
+    var pauseEl = null;
+    if (phase === 'paused') {
+      pauseEl = html`<div className="overlay dim">
+        <div className="badge">PAUSED</div>
+        <h2 className="mt">游戏暂停</h2>
+        <button className="btn primary" onClick=${togglePause}>继续游戏</button>
+        <div className="row">
+          <button className="btn ghost" onClick=${startGame}>重新开始</button>
+          <button className="btn ghost" onClick=${goHome}>返回主页</button>
+        </div>
+      </div>`;
+    }
+
+    var overEl = null;
+    if (phase === 'over' && result && !board) {
+      overEl = html`<div className="overlay dim">
+        <div className="badge red">GAME OVER</div>
+        <div className="final-label">最终得分</div>
+        <div className="final">${fmt(result.score)}</div>
+        ${result.isRecord ? html`<div className="record">新纪录</div>` : null}
+        <div className="stats">
+          ${result.rank > 0 && result.rank <= 10 ? '本局排名 #' + result.rank + ' · ' : ''}金币 ${result.coins} · 里程 ${fmt(result.meters)} m
+        </div>
+        <button className="btn primary" onClick=${startGame}>再来一局</button>
+        <div className="row">
+          <button className="btn ghost" onClick=${function () { Sound.cue('ui'); setBoard(true); }}>排行榜</button>
+          <button className="btn ghost" onClick=${goHome}>返回主页</button>
+        </div>
+      </div>`;
+    }
+
+    var boardEl = null;
+    if (board) {
+      boardEl = html`<div className="overlay dim">
+        <h2 className="mt">本地排行榜</h2>
+        <div className="board">
+          ${scores.length === 0
+            ? html`<div className="empty">还没有记录，快去跑一局</div>`
+            : scores.map(function (s, i) {
+                return html`<div className=${'brow' + (i === 0 ? ' top' : '')} key=${i}>
+                  <span className=${'rk' + (i < 3 ? ' r' + (i + 1) : '')}>${i + 1}</span>
+                  <span className="sc">${fmt(s.score)}</span>
+                  <span className="dt">${fmtDate(s.date)}</span>
+                </div>`;
+              })}
+        </div>
+        <button className="btn primary" onClick=${function () { Sound.cue('ui'); setBoard(false); }}>关闭</button>
+        ${scores.length > 0
+          ? html`<button className="btn ghost" onClick=${clearBoard}>清空记录</button>`
+          : null}
+      </div>`;
+    }
+
+    return html`<div className="stage">
+      <canvas ...${canvasProps}></canvas>
+      ${hudEl}
+      ${padEl}
+      ${homeEl}
+      ${pauseEl}
+      ${overEl}
+      ${boardEl}
+    </div>`;
+  }
+
+  /* =========================================================
+     启动
+  ========================================================= */
+  ReactDOM.createRoot(document.getElementById('root')).render(html`<${App} />`);
+
+  // CDN 兜底检查
+  setTimeout(function () {
+    var err = document.getElementById('loaderr');
+    if (err && (!window.React || !window.ReactDOM || !window.htm)) {
+      err.style.display = 'grid';
+    }
+  }, 2600);
+
+})();
+</script>
+</body>
+</html>
